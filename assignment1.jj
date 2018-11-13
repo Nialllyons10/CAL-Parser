@@ -1,0 +1,336 @@
+/*
+  SECTION ONE - OPTIONS 
+*/
+
+options { 
+  IGNORE_CASE = true;
+  JAVA_UNICODE_ESCAPE = true;
+}
+
+/*
+  SECTION TWO - USER CODE 
+*/
+
+PARSER_BEGIN(CALParser)
+
+import java.util.*;
+
+public class CALParser {
+  public static void main(String [] args){
+
+        //Parser initialization
+        CALParser parser;
+
+        if(args.length == 0){
+          System.out.println ("CALParser: Reading input ...");
+          parser = new CALParser(System.in);
+        }
+        else if(args.length == 1){
+          System.out.println ("CALParser: Reading the file " + args[0] + " ..." );
+          try {
+            parser = new CALParser(new java.io.FileInputStream(args[0]));
+          }
+          catch(java.io.FileNotFoundException e) {
+            System.out.println ("CALParser: The file " + args[0] + " was not found.");
+            return;
+          }
+        }
+        else {
+          System.out.println ("CALParser:  You must use one of the following:");
+          System.out.println ("         java CALParser < file");
+          System.out.println ("Or");
+          System.out.println ("         java CALParser file");
+          return ;
+        }
+        try {
+          parser.programme();
+          System.out.println("CALParser: The input was read successfully.");
+        }
+        catch(ParseException e){
+          System.out.println ("CALParser: There was an error during the parse.");
+          System.out.println (e.getMessage());
+        }
+        catch(TokenMgrError e){
+          System.out.println ("CALParser: There was an error.");
+          System.out.println (e.getMessage());
+        }
+      }
+  }
+
+PARSER_END (CALParser)
+
+/*
+  SECTION THREE - TOKEN DEFINITIONS 
+*/
+
+TOKEN_MGR_DECLS :
+{
+  static int commentNesting = 0;
+}
+
+//Newline, space , tabs ignore 
+SKIP: 
+{ 
+      "\n" 
+    | "\r" 
+    | "\r\n"
+    | "\t"
+    | " "
+    | "\f"
+}
+
+SKIP :
+{
+    "/*" { commentNesting++; } : IN_COMMENT
+  | <"//" (~["\n"])* "\n">
+}
+
+<IN_COMMENT> SKIP : 
+{
+  "/*" { commentNesting++;}
+  | "*/" { commentNesting--;
+          if(commentNesting == 0)
+              SwitchTo(DEFAULT);
+          }
+  |<~[]>
+}
+
+/*
+  Accepted tokens used within the language defined through http://www.computing.dcu.ie/~davids/courses/CA4003/cal.pdf
+*/
+
+TOKEN :
+{
+    <COMMA:(",")>
+  | <SCOLON:(";")>
+  | <COLON:(":")>
+  | <ASIGN:(":=")>
+  | <OPBRA :("(")>
+  | <CLBRA:(")")>
+  | <PLUS:("+")>
+  | <MINUS:("-")>
+  | <TILDA:("~")>
+  | <OR:("|")>
+  | <AND:("&")>
+  | <EQ:("=")>
+  | <NOTEQ:("!=")>
+  | <LT:("<")>
+  | <LTEQ:("<=")>
+  | <GT:(">")>
+  | <GTEQ:(">=")>
+}
+
+TOKEN : 
+{
+    <VAR: "variable">
+  | <CONST: "constant">
+  | <RET: "return">
+  | <INT: "integer">
+  | <BOOL: "boolean">
+  | <VOID: "void">
+  | <MAIN: "main">
+  | <IF: "if">
+  | <ELSE: "else">
+  | <TRUE: "true">
+  | <FALSE: "false">
+  | <WHILE: "while">
+  | <BEGIN: "begin">
+  | <END: "end">
+  | <IS: "is">
+  | <SKI: ("skip")>
+}
+
+TOKEN : 
+{  
+    <IDENTIFIER: <LETTER>(<LETTER>|<DIGIT>|<SPECHAR>)*>
+  | <DIGIT: "0" | <MINUS> ["1" - "9"] (["0" - "9"])* | ["1" - "9"] (["0" - "9"])*> 
+  | <LETTER: (["a"-"z","A"-"Z"])>
+  | <SPECHAR : "_"> //special characters 
+}
+
+/*
+  SECTION FOUR 
+*/
+
+void programme () : {} 
+{
+  declartionList()functionList()mainMethod(){}
+}
+
+void declartionList() : {}
+{ 
+  declartion()<SCOLON>declartionList() | {} 
+}
+
+void declartion() : {}
+{
+    variableDeclaration()
+  | constDeclaration() {}
+}
+
+void variableDeclaration() : {}
+{
+  <VAR><IDENTIFIER><COLON>type()
+} 
+
+void constDeclaration() : {}
+{
+  <CONST><IDENTIFIER><COLON>type()<ASIGN>expression()
+}
+
+void functionList() : {} 
+{ 
+  function()functionList() | {} 
+}
+
+void function() : {}
+{ 
+  type() <IDENTIFIER><OPBRA>paramList()<CLBRA>
+  functionBody()
+}
+
+void functionBody() : {}
+{ 
+  <IS>
+  declartionList()
+  <BEGIN>
+  statementBlock()
+  returnStatement()
+  <END>
+}
+
+void returnStatement() : {}
+{ 
+  <RET><OPBRA>(expression() | {} )<CLBRA><SCOLON> 
+}
+
+void type() : {}
+{ 
+      <INT> 
+    | <BOOL>   
+    | <VOID>
+  
+}
+
+void paramList () : {}
+{
+  nemp_parameter_list() | {}   
+}
+
+void nemp_parameter_list() : {}
+{
+  simple_nemp_param_list() (<COMMA> nemp_parameter_list() | {} )   
+   
+}
+
+void simple_nemp_param_list(): {} 
+{ 
+  <IDENTIFIER><COLON>type() 
+
+}
+
+void mainMethod() : {}
+{ 
+  <MAIN>
+  <BEGIN>
+  declartionList()
+  statementBlock()
+  <END>
+}
+
+void statementBlock() : {}
+{
+  statement()statementBlock() | {} 
+}
+
+void statement (): {}
+{
+        simple_statement()
+       | <BEGIN> statementBlock() <END>
+       | <IF> condition() <BEGIN> statementBlock()<END>
+          <ELSE> <BEGIN> statementBlock() <END> 
+       | <WHILE> condition() <BEGIN> statementBlock() <END>
+       | <SKI> <SCOLON> 
+    
+}
+
+void simple_statement() : {} 
+{ 
+  <IDENTIFIER>(<ASIGN> expression() <SCOLON> | <OPBRA>argList()<CLBRA> <SCOLON>)
+}
+
+
+void simple_expression() : {}
+{
+    binOp() expression()
+  | {} 
+}
+
+void expression () : {}
+{
+  
+    fragment()simple_expression()
+  | <OPBRA>expression()<CLBRA> simple_expression()
+  | <IDENTIFIER>[<OPBRA>argList()<CLBRA>] simple_expression()
+  
+}
+
+void binOp(): {}
+{
+     <PLUS> 
+    | <MINUS> 
+}
+
+void fragment(): {}
+{ 
+   <DIGIT>
+  | boolOp()
+  | <MINUS> <IDENTIFIER> 
+}
+
+void condition(): {}
+{
+  simple_condition()(<OR>condition()| <AND>condition() | {})
+}
+
+
+//Because of the two conditions in test6 each side of and 
+void simple_condition() : {} 
+{ 
+    <TILDA> condition()(<OR>condition()| <AND>condition() | {})
+  | LOOKAHEAD(3) <OPBRA> condition() <CLBRA> (<OR> condition() | <AND> condition() | {})
+  | expression() compOp() expression() (<OR> condition()| <AND> condition() | {})
+
+}
+
+void compOp () : {}
+{
+      <EQ> 
+    | <NOTEQ> 
+    | <LT> 
+    | <LTEQ> 
+    | <GT> 
+    | <GTEQ> 
+ 
+}
+
+void boolOp () : {}
+{
+    <TRUE> 
+    | <FALSE> 
+}
+
+void argList () : {}
+{
+    nemp_argument_list() | {}
+}
+
+void nemp_argument_list() : {}
+{
+   <IDENTIFIER>(<COMMA>nemp_argument_list() | {} )
+}
+
+
+
+
+
