@@ -4,7 +4,7 @@
 
 CA  | Result
 ------------- | -------------
-Assignment 2 | 14/15
+Assignment 1 | 14/15
 __Total__ | __93%__
 
 ### Aim
